@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Produção - Corte</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { padding-top: 20px; background-color: #f8f9fa; }
+        .container { max-width: 1400px; }
+        .paginacao-topo {
+            background-color: #ffffff;
+            border-radius: 8px;
+            padding: 10px 15px;
+            border: 1px solid #e3e6f0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+        .filtro-card {
+            background-color: #ffffff;
+            border: 1px solid #e3e6f0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h3 class="mb-3">Controle de Produção - Corte</h3>
+
+        <!-- Mensagens de Alerta -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'success' if category == 'success' else ('danger' if category == 'danger' else 'info') }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Navegação por Abas (Filtros limpam ao trocar de aba principal para evitar conflito entre utilizadores) -->
+        <ul class="nav nav-tabs mb-4" id="myTab" role="tablist">
+            <li class="nav-item">
+                <a class="nav-link {{ 'active' if aba_ativa == 'ordens' else '' }}" href="/?aba=ordens">Ordens</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {{ 'active' if aba_ativa == 'separacao' else '' }}" href="/?aba=separacao">Separação</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {{ 'active' if aba_ativa == 'poli1' else '' }}" href="/?aba=poli1">Policorte 1</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {{ 'active' if aba_ativa == 'poli2' else '' }}" href="/?aba=poli2">Policorte 2</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {{ 'active' if aba_ativa == 'poli3' else '' }}" href="/?aba=poli3">Policorte 3</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {{ 'active' if aba_ativa == 'finalizadas' else '' }}" href="/?aba=finalizadas">Finalizadas</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {{ 'active' if aba_ativa == 'analise' else '' }}" href="/?aba=analise">📊 Análise de Cargas</a>
+            </li>
+        </ul>
+
+        {% set querystring_filtros = "f_codigo=" ~ filtros.codigo ~ "&f_carga=" ~ filtros.carga ~ "&f_perfil=" ~ filtros.perfil ~ "&f_sobra=" ~ filtros.sobra ~ "&f_data=" ~ filtros.data ~ "&ordem_id=" ~ filtros.ordem_id ~ "&juntar_codigos=" ~ filtros.juntar_codigos %}
+
+        <!-- Macro do Filtro Retrátil -->
+        {% macro render_filtro_retratil(nome_aba) %}
+        <div class="filtro-card">
+            <div class="p-2 px-3 d-flex justify-content-between align-items-center bg-light rounded-top" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#collapseFiltro_{{ nome_aba }}">
+                <span class="fw-bold text-secondary" style="font-size: 14px;">🔍 Filtros Avançados e Ordenação</span>
+                <span class="text-muted" style="font-size: 12px;">▼ Recolher/Expandir</span>
+            </div>
+            <div class="collapse" id="collapseFiltro_{{ nome_aba }}">
+                <div class="p-3">
+                    <form method="GET" action="/">
+                        <input type="hidden" name="aba" value="{{ nome_aba }}">
+                        <div class="row g-2">
+                            <div class="col-md-2">
+                                <label class="form-label text-muted" style="font-size: 11px;">Código</label>
+                                <input type="text" class="form-control form-control-sm" name="f_codigo" value="{{ filtros.codigo }}" placeholder="Filtrar código...">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label text-muted" style="font-size: 11px;">Carga</label>
+                                <input type="text" class="form-control form-control-sm" name="f_carga" value="{{ filtros.carga }}" placeholder="Filtrar carga...">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label text-muted" style="font-size: 11px;">Perfil</label>
+                                <input type="text" class="form-control form-control-sm" name="f_perfil" value="{{ filtros.perfil }}" placeholder="Filtrar perfil...">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label text-muted" style="font-size: 11px;">Sobra</label>
+                                <input type="text" class="form-control form-control-sm" name="f_sobra" value="{{ filtros.sobra }}" placeholder="Filtrar sobra...">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label text-muted" style="font-size: 11px;">Data (Calendário)</label>
+                                <input type="date" class="form-control form-control-sm" name="f_data" value="{{ filtros.data }}">
+                            </div>
+                        </div>
+
+                        <div class="row g-2 mt-2 align-items-center border-top pt-2">
+                            <div class="col-md-4">
+                                <label class="form-label text-muted" style="font-size: 11px;">Ordenar por Código / ID:</label>
+                                <select name="ordem_id" class="form-select form-select-sm">
+                                    <option value="padrao" {{ 'selected' if filtros.ordem_id == 'padrao' else '' }}>Padrão (ID)</option>
+                                    <option value="decrescente" {{ 'selected' if filtros.ordem_id == 'decrescente' else '' }}>ID Decrescente</option>
+                                </select>
+                            </div>
+                            <div class="col-md-8">
+                                <div class="form-check mt-3">
+                                    <input class="form-check-input" type="checkbox" name="juntar_codigos" id="juntar_codigos_{{ nome_aba }}" value="sim" {{ 'checked' if filtros.juntar_codigos == 'sim' else '' }}>
+                                    <label class="form-check-label text-secondary" style="font-size: 12px;" for="juntar_codigos_{{ nome_aba }}">
+                                        Juntar ordens com o mesmo código juntas (Ignorar Data/Carga)
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-3 d-flex justify-content-end gap-2">
+                            <a href="/?aba={{ nome_aba }}" class="btn btn-outline-secondary btn-sm">Limpar Filtros</a>
+                            <button type="submit" class="btn btn-primary btn-sm">Aplicar Filtros</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endmacro %}
+
+        <!-- Macro de Paginação no Topo -->
+        {% macro render_paginacao_topo(nome_aba, titulo_secao) %}
+            {% set pag = paginacao[nome_aba] %}
+            <div class="d-flex justify-content-between align-items-center paginacao-topo mb-3">
+                <div class="d-flex align-items-center">
+                    <h5 class="m-0 me-2">{{ titulo_secao }}</h5>
+                    <span class="badge bg-secondary rounded-pill">{{ pag.total_itens }} registros</span>
+                </div>
+                
+                {% if pag.total_paginas > 1 %}
+                <div class="d-flex align-items-center">
+                    <span class="text-muted me-3" style="font-size: 13px;">Página <strong>{{ pag.atual }}</strong> de <strong>{{ pag.total_paginas }}</strong></span>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <a href="/?aba={{ nome_aba }}&page={{ pag.atual - 1 }}&{{ querystring_filtros }}" class="btn btn-outline-primary {{ 'disabled' if pag.atual == 1 else '' }}">
+                            ◀ Anterior
+                        </a>
+                        <a href="/?aba={{ nome_aba }}&page={{ pag.atual + 1 }}&{{ querystring_filtros }}" class="btn btn-outline-primary {{ 'disabled' if pag.atual == pag.total_paginas else '' }}">
+                            Próximo ▶
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        {% endmacro %}
+
+        <!-- Conteúdo das Abas -->
+        <div class="tab-content" id="myTabContent">
+            
+            <!-- ABA 1: ORDENS -->
+            <div class="tab-pane fade {{ 'show active' if aba_ativa == 'ordens' else '' }}" id="ordens">
+                <h4 class="mt-2">Cadastro de Ordens e Cargas</h4>
+                
+                <form method="POST" class="card p-3 mb-4 shadow-sm">
+                    <input type="hidden" name="acao" value="cadastrar_ordem">
+                    <input type="hidden" name="aba_origem" value="ordens">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="txt_ordens" class="form-label">Cole as Linhas do Dashboard</label>
+                            <textarea class="form-control" id="txt_ordens" name="txt_ordens" rows="4" placeholder="Ex: C219-555 ES219JAL 1" required></textarea>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="txt_cargas" class="form-label">Número da Carga</label>
+                            <input type="text" class="form-control" id="txt_cargas" name="txt_cargas">
+                            
+                            <label class="form-label mt-3">Tipo de Item:</label>
+                            <div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="tipo_selecionado" id="tipo1" value="Ordens Criadas" checked>
+                                    <label class="form-check-label" for="tipo1">Ordens Criadas</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="tipo_selecionado" id="tipo2" value="Carga">
+                                    <label class="form-check-label" for="tipo2">Carga</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Salvar Ordens</button>
+                </form>
+
+                {{ render_filtro_retratil('ordens') }}
+                {{ render_paginacao_topo('ordens', 'Ordens Cadastradas') }}
+
+                {% if ordens_cadastradas %}
+                <form method="POST" id="form-ordens-acoes" action="/enviar_lote?{{ querystring_filtros }}">
+                    <div class="card p-3 mb-3 bg-light shadow-sm d-flex flex-row justify-content-between align-items-center">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="selectAll" onclick="toggleAll(this)">
+                            <label class="form-check-label fw-bold" for="selectAll" style="font-size: 13px;">Selecionar Todos da Página</label>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="submit" formaction="/priorizar_lote?{{ querystring_filtros }}" class="btn btn-warning btn-sm fw-bold">🚨 Priorizar Ordem</button>
+                            <button type="submit" formaction="/excluir_lote?{{ querystring_filtros }}" class="btn btn-danger btn-sm fw-bold" onclick="return confirm('Deseja realmente excluir as ordens selecionadas?');">🗑️ Excluir Selecionadas</button>
+                        </div>
+                    </div>
+
+                    <div class="list-group">
+                        {% for row in ordens_cadastradas %}
+                            {% set is_prioridade = row.get('Tipo') == 'Ordens Criadas' %}
+                            {% set is_agrupado = row.get('Agrupado') == 'Sim' %}
+                            
+                            {% set bg_color = '#e7f1ff' if is_agrupado else ('#fff5f5' if is_prioridade else '#ffffff') %}
+                            {% set border_color = '#0d6efd' if is_agrupado else ('#dc3545' if is_prioridade else '#ced4da') %}
+
+                            {% set codigo_atual = row.get('Codigo') %}
+                            {% set count_codigo = namespace(val=0) %}
+                            {% if df_global is not none %}
+                                {% for r_glob in df_global.to_dict('records') %}
+                                    {% if r_glob.get('Codigo') == codigo_atual %}
+                                        {% set count_codigo.val = count_codigo.val + 1 %}
+                                    {% endif %}
+                                {% endfor %}
+                            {% endif %}
+                            {% set tem_duplicado = count_codigo.val > 1 %}
+
+                            <div class="list-group-item mb-2 shadow-sm rounded d-flex justify-content-between align-items-center" style="background-color: {{ bg_color }}; border-left: 5px solid {{ border_color }}; font-size: 13px;">
+                                <div class="d-flex align-items-center flex-grow-1">
+                                    <div class="me-3">
+                                        <input class="form-check-input chk-ordem" type="checkbox" name="ids_lote" value="{{ row['ID'] }}">
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <span class="text-muted" style="font-size: 11px;">
+                                            ID: {{ row['ID'] }} | Data: {{ row['Data'] }} | Tipo: <strong>{{ row['Tipo'] }}</strong> | Carga: <strong>{{ row['Carga'] }}</strong> | Status: <strong>{{ row['Status'] }}</strong>
+                                        </span>
+                                        <div class="mt-1">
+                                            <strong>Ordem:</strong> <span class="text-primary fw-bold">{{ row['Codigo'] }}</span> 
+                                            {% if tem_duplicado %}<span title="Existem outras ordens com este mesmo código!" style="cursor: pointer;">🔴</span>{% endif %}
+                                            &nbsp;|&nbsp;
+                                            <strong>Perfil:</strong> <span class="text-primary fw-bold">{{ row['Perfis'] }}</span> &nbsp;|&nbsp;
+                                            <strong>Sobras:</strong> <span class="text-success">{{ row['Sobras'] }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="d-inline-flex ms-2 align-items-center">
+                                    <input type="number" step="0.01" id="qtd_ordens_{{ row['ID'] }}" class="form-control form-control-sm me-1" style="width: 80px;" placeholder="Nova Qtd">
+                                    <button type="button" onclick="executarEdicao('{{ row['ID'] }}', 'ordens')" class="btn btn-outline-warning btn-sm" title="Editar quantidade e gerar resto">✏️ Editar</button>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </form>
+                {% else %}
+                    <div class="alert alert-info">Nenhuma ordem encontrada.</div>
+                {% endif %}
+            </div>
+
+            <!-- ABA 2: SEPARAÇÃO -->
+            <div class="tab-pane fade {{ 'show active' if aba_ativa == 'separacao' else '' }}" id="separacao">
+                <h4 class="mt-2">Separação para o Corte</h4>
+                {{ render_filtro_retratil('separacao') }}
+                {{ render_paginacao_topo('separacao', 'Ordens Pendentes') }}
+                
+                {% if pendentes %}
+                <form action="/enviar_lote?{{ querystring_filtros }}" method="POST" id="form-separacao">
+                    <input type="hidden" name="aba_origem" value="separacao">
+                    <div class="card p-3 mb-3 bg-light shadow-sm">
+                        <h6 class="mb-2">Painel de Ações em Lote</h6>
+                        <div class="row align-items-center">
+                            <div class="col-md-3 mb-2">
+                                <select name="destino_lote" class="form-select form-select-sm">
+                                    <option value="Policorte 1">Policorte 1</option>
+                                    <option value="Policorte 2">Policorte 2</option>
+                                    <option value="Policorte 3">Policorte 3</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3 mb-2">
+                                <button type="submit" class="btn btn-primary btn-sm w-100">🚀 Enviar Selecionadas</button>
+                            </div>
+                            <div class="col-md-3 mb-2">
+                                <button type="submit" formaction="/agrupar_lote?{{ querystring_filtros }}" class="btn btn-dark btn-sm w-100">📎 Agrupar OS</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="list-group">
+                        {% for row in pendentes %}
+                            {% set is_prioridade = row.get('Tipo') == 'Ordens Criadas' %}
+                            {% set is_agrupado = row.get('Agrupado') == 'Sim' %}
+                            
+                            {% set bg_color = '#e7f1ff' if is_agrupado else ('#fff5f5' if is_prioridade else '#ffffff') %}
+                            {% set border_color = '#0d6efd' if is_agrupado else ('#dc3545' if is_prioridade else '#ced4da') %}
+
+                            {% set codigo_atual = row.get('Codigo') %}
+                            {% set count_codigo = namespace(val=0) %}
+                            {% if df_global is not none %}
+                                {% for r_glob in df_global.to_dict('records') %}
+                                    {% if r_glob.get('Codigo') == codigo_atual %}
+                                        {% set count_codigo.val = count_codigo.val + 1 %}
+                                    {% endif %}
+                                {% endfor %}
+                            {% endif %}
+                            {% set tem_duplicado = count_codigo.val > 1 %}
+
+                            <div class="list-group-item mb-2 shadow-sm rounded d-flex justify-content-between align-items-center" style="background-color: {{ bg_color }}; border-left: 5px solid {{ border_color }}; font-size: 13px;">
+                                <div class="d-flex align-items-center flex-grow-1">
+                                    <div class="me-3">
+                                        <input class="form-check-input chk-ordem" type="checkbox" name="ids_lote" value="{{ row['ID'] }}">
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <span class="text-muted" style="font-size: 11px;">
+                                            ID: {{ row['ID'] }} | Data: {{ row['Data'] }} | Tipo: <strong>{{ row['Tipo'] }}</strong> | Carga: <strong>{{ row['Carga'] }}</strong>
+                                        </span>
+                                        <div class="mt-1">
+                                            <strong>Ordem:</strong> <span class="text-primary fw-bold">{{ row['Codigo'] }}</span> 
+                                            {% if tem_duplicado %}<span title="Existem outras ordens com este mesmo código!" style="cursor: pointer;">🔴</span>{% endif %}
+                                            &nbsp;|&nbsp;
+                                            <strong>Perfil:</strong> <span class="text-primary fw-bold">{{ row['Perfis'] }}</span> &nbsp;|&nbsp;
+                                            <strong>Sobras:</strong> <span class="text-success">{{ row['Sobras'] }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="d-inline-flex ms-2 align-items-center">
+                                    <input type="number" step="0.01" id="qtd_separacao_{{ row['ID'] }}" class="form-control form-control-sm me-1" style="width: 80px;" placeholder="Nova Qtd">
+                                    <button type="button" onclick="executarEdicao('{{ row['ID'] }}', 'separacao')" class="btn btn-outline-warning btn-sm" title="Editar quantidade e gerar resto">✏️ Editar</button>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </form>
+                {% else %}
+                    <div class="alert alert-info">Não há ordens pendentes.</div>
+                {% endif %}
+            </div>
+
+            <!-- ABAS POLICORTES -->
+            {% macro render_policorte(titulo, lista_itens, nome_poli) %}
+            <div class="tab-pane fade {{ 'show active' if aba_ativa == nome_poli else '' }}" id="{{ nome_poli }}">
+                <h4 class="mt-2">Fila de Trabalho - {{ titulo }}</h4>
+                {{ render_filtro_retratil(nome_poli) }}
+                {{ render_paginacao_topo(nome_poli, 'Ordens em ' ~ titulo) }}
+                
+                {% if lista_itens %}
+                    <div class="list-group">
+                        {% for row in lista_itens %}
+                            {% set is_prioridade = row.get('Tipo') == 'Ordens Criadas' %}
+                            {% set is_agrupado = row.get('Agrupado') == 'Sim' %}
+                            
+                            {% set bg_color = '#e7f1ff' if is_agrupado else ('#fff5f5' if is_prioridade else '#ffffff') %}
+                            {% set border_color = '#0d6efd' if is_agrupado else ('#dc3545' if is_prioridade else '#ced4da') %}
+
+                            {% set codigo_atual = row.get('Codigo') %}
+                            {% set count_codigo = namespace(val=0) %}
+                            {% if df_global is not none %}
+                                {% for r_glob in df_global.to_dict('records') %}
+                                    {% if r_glob.get('Codigo') == codigo_atual %}
+                                        {% set count_codigo.val = count_codigo.val + 1 %}
+                                    {% endif %}
+                                {% endfor %}
+                            {% endif %}
+                            {% set tem_duplicado = count_codigo.val > 1 %}
+
+                            <div class="list-group-item mb-2 shadow-sm rounded d-flex justify-content-between align-items-center" style="background-color: {{ bg_color }}; border-left: 5px solid {{ border_color }}; font-size: 13px;">
+                                <div>
+                                    <span class="text-muted" style="font-size: 11px;">
+                                        ID: {{ row['ID'] }} | Tipo: <strong>{{ row['Tipo'] }}</strong> | Carga: {{ row['Carga'] }}
+                                    </span>
+                                    <div class="mt-1">
+                                        <strong>Ordem:</strong> <span class="text-primary fw-bold">{{ row['Codigo'] }}</span>
+                                        {% if tem_duplicado %}<span title="Existem outras ordens com este mesmo código!" style="cursor: pointer;">🔴</span>{% endif %}
+                                        | 
+                                        <strong>Perfil:</strong> <span class="text-primary fw-bold">{{ row['Perfis'] }}</span> | 
+                                        <strong>Sobras:</strong> <span class="text-success">{{ row['Sobras'] }}</span>
+                                    </div>
+                                </div>
+                                <div class="btn-group" role="group">
+                                    <form action="/mudar_status/{{ row['ID'] }}/Pendente/Nenhuma?aba={{ nome_poli }}&{{ querystring_filtros }}" method="POST" class="me-1">
+                                        <button type="submit" class="btn btn-outline-secondary btn-sm">⬅ Voltar</button>
+                                    </form>
+                                    <form action="/mudar_status/{{ row['ID'] }}/Finalizado/{{ titulo }}?aba={{ nome_poli }}&{{ querystring_filtros }}" method="POST">
+                                        <button type="submit" class="btn btn-success btn-sm">Finalizar</button>
+                                    </form>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">Nenhuma ordem para a {{ titulo }}.</div>
+                {% endif %}
+            </div>
+            {% endmacro %}
+
+            {{ render_policorte("Policorte 1", poli1, "poli1") }}
+            {{ render_policorte("Policorte 2", poli2, "poli2") }}
+            {{ render_policorte("Policorte 3", poli3, "poli3") }}
+
+            <!-- ABA 6: FINALIZADAS -->
+            <div class="tab-pane fade {{ 'show active' if aba_ativa == 'finalizadas' else '' }}" id="finalizadas">
+                <div class="d-flex justify-content-between align-items-center mt-2 mb-2">
+                    <h4>Histórico de Ordens Finalizadas</h4>
+                    <a href="/baixar_excel?{{ querystring_filtros }}" class="btn btn-success btn-sm fw-bold">📥 Baixar Excel (Relatório)</a>
+                </div>
+
+                {{ render_filtro_retratil('finalizadas') }}
+                {{ render_paginacao_topo('finalizadas', 'Ordens Concluídas') }}
+                
+                {% if finalizadas %}
+                    <div class="list-group mb-3">
+                        {% for row in finalizadas %}
+                            {% set is_prioridade = row.get('Tipo') == 'Ordens Criadas' %}
+                            {% set is_agrupado = row.get('Agrupado') == 'Sim' %}
+                            
+                            {% set bg_color = '#e7f1ff' if is_agrupado else ('#fff5f5' if is_prioridade else '#ffffff') %}
+                            {% set border_color = '#0d6efd' if is_agrupado else ('#dc3545' if is_prioridade else '#ced4da') %}
+
+                            {% set codigo_atual = row.get('Codigo') %}
+                            {% set count_codigo = namespace(val=0) %}
+                            {% if df_global is not none %}
+                                {% for r_glob in df_global.to_dict('records') %}
+                                    {% if r_glob.get('Codigo') == codigo_atual %}
+                                        {% set count_codigo.val = count_codigo.val + 1 %}
+                                    {% endif %}
+                                {% endfor %}
+                            {% endif %}
+                            {% set tem_duplicado = count_codigo.val > 1 %}
+
+                            <div class="list-group-item mb-2 shadow-sm rounded d-flex justify-content-between align-items-center" style="background-color: {{ bg_color }}; border-left: 5px solid {{ border_color }}; font-size: 13px;">
+                                <div>
+                                    <span class="text-muted" style="font-size: 11px;">
+                                        ID: {{ row['ID'] }} | Data: {{ row['Data'] }} | Tipo: <strong>{{ row['Tipo'] }}</strong> | Carga: {{ row['Carga'] }} | Policorte: {{ row['Policorte'] }}
+                                    </span>
+                                    <div class="mt-1">
+                                        <strong>Ordem:</strong> <span class="text-primary fw-bold">{{ row['Codigo'] }}</span>
+                                        {% if tem_duplicado %}<span title="Existem outras ordens com este mesmo código!" style="cursor: pointer;">🔴</span>{% endif %}
+                                        | 
+                                        <strong>Perfil:</strong> <span class="text-primary fw-bold">{{ row['Perfis'] }}</span> | 
+                                        <strong>Sobras:</strong> <span class="text-success">{{ row['Sobras'] }}</span>
+                                    </div>
+                                </div>
+                                <form action="/mudar_status/{{ row['ID'] }}/Pendente/Nenhuma?aba=finalizadas&{{ querystring_filtros }}" method="POST">
+                                    <button type="submit" class="btn btn-outline-secondary btn-sm">⬅ Voltar</button>
+                                </form>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">Nenhuma ordem finalizada.</div>
+                {% endif %}
+            </div>
+
+<!-- ABA 7: ANÁLISE DE CARGAS -->
+            <div class="tab-pane fade {{ 'show active' if aba_ativa == 'analise' else '' }}" id="analise">
+                <h4 class="mt-2">📊 Painel de Análise e Andamento de Cargas</h4>
+                
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <div class="card p-3 bg-light text-center shadow-sm">
+                            <span class="text-muted fw-bold" style="font-size: 12px;">📥 Ordens Criadas Hoje (Sem Carga)</span>
+                            <div class="fs-4 fw-bold text-primary mt-1">{{ ordens_hoje_sem_carga }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card p-3 bg-light text-center shadow-sm">
+                            <span class="text-muted fw-bold" style="font-size: 12px;">📌 Total Ordens Criadas (Geral)</span>
+                            <div class="fs-4 fw-bold text-warning mt-1">{{ total_ordens_criadas_geral }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card p-3 bg-light text-center shadow-sm">
+                            <span class="text-muted fw-bold" style="font-size: 12px;">📦 Total Geral de Registros</span>
+                            <div class="fs-4 fw-bold text-dark mt-1">{{ df_global|length if df_global is not none else 0 }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <h5 class="mb-3">📈 Andamento por Carga e Ordens Criadas</h5>
+                
+                {% if resumo_cargas %}
+                    {% for carga in resumo_cargas %}
+                        <div class="card p-3 mb-3 shadow-sm border-start border-primary border-1">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="m-0 text-primary fw-bold">📌 {{ carga.nome }}</h6>
+                                <span class="badge bg-primary rounded-pill">Progresso: {{ carga.progresso }}% Concluído</span>
+                            </div>
+                            <div class="text-muted" style="font-size: 12px;">
+                                📋 Total: <strong>{{ carga.total }}</strong> &nbsp;|&nbsp; 
+                                ⏳ Em Separação: <strong class="text-warning">{{ carga.separacao }}</strong> &nbsp;|&nbsp; 
+                                ⚙️ Em Corte: <strong class="text-info">{{ carga.em_corte }}</strong> &nbsp;|&nbsp; 
+                                ✅ Finalizadas: <strong class="text-success">{{ carga.finalizadas }}</strong>
+                            </div>
+                            <div class="progress mt-2" style="height: 8px;">
+                                <div class="progress-bar bg-success" role="progressbar" style="width: {{ carga.progresso }}%;" aria-valuenow="{{ carga.progresso }}" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="alert alert-info">Nenhuma carga cadastrada para análise no momento.</div>
+                {% endif %}
+            </div>
+
+
+
+    <!-- Bootstrap 5 JS Bundle & Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function toggleAll(source) {
+            checkboxes = document.getElementsByClassName('chk-ordem');
+            for(let i=0; i<checkboxes.length; i++) {
+                checkboxes[i].checked = source.checked;
+            }
+        }
+
+        function executarEdicao(idOrdem, abaNome) {
+            const inputQtd = document.getElementById('qtd_' + abaNome + '_' + idOrdem);
+            if (!inputQtd || !inputQtd.value) {
+                alert("Por favor, digite a nova quantidade antes de clicar em Editar!");
+                inputQtd.focus();
+                return;
+            }
+
+            const urlParams = window.location.search;
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/editar_quantidade/' + idOrdem + urlParams;
+
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'nova_quantidade';
+            input.value = inputQtd.value;
+
+            form.appendChild(input);
+            document.body.appendChild(form);
+            form.submit();
+        }
+    </script>
+</body>
+</html>
