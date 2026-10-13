@@ -85,10 +85,12 @@ def salvar_dados(df):
             records.append(registro_limpo)
 
         if records:
-            supabase.table("Sistema-Corte").upsert(records).execute()
+            # Usamos insert em vez de upsert para novos registos
+            resposta = supabase.table("Sistema-Corte").insert(records).execute()
+            print("Resposta do Supabase:", resposta)
     except Exception as e:
         print(f"ERRO CRÍTICO AO SALVAR NO SUPABASE: {e}")
-
+        raise e  # Mostra o erro exato no ecrã se falhar
 
 
 
