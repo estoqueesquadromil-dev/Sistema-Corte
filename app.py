@@ -56,10 +56,6 @@ def salvar_dados(df):
         return
         
     try:
-        res = supabase.table("Sistema-Corte").select("id").execute()
-        ids_existentes = [r["id"] for r in res.data if r.get("id") is not None]
-        proximo_id = max(ids_existentes) + 1 if ids_existentes else 1
-
         df_envio = df.copy()
         df_envio = df_envio.fillna("")
         
@@ -84,11 +80,7 @@ def salvar_dados(df):
                 try:
                     registro_limpo["id"] = int(float(str(id_val)))
                 except ValueError:
-                    registro_limpo["id"] = proximo_id
-                    proximo_id += 1
-            else:
-                registro_limpo["id"] = proximo_id
-                proximo_id += 1
+                    pass
 
             records.append(registro_limpo)
 
@@ -96,6 +88,8 @@ def salvar_dados(df):
             supabase.table("Sistema-Corte").upsert(records).execute()
     except Exception as e:
         print(f"ERRO CRÍTICO AO SALVAR NO SUPABASE: {e}")
+
+
 
 
 def eh_perfil(nome):
