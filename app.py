@@ -93,9 +93,13 @@ def salvar_dados(df):
             records.append(registro_limpo)
 
         if records:
-            supabase.table("Sistema-Corte").upsert(records).execute()
+            # Executa e força o levantamento de exceção caso o Supabase recuse
+            resposta = supabase.table("Sistema-Corte").upsert(records).execute()
+            print("Resposta do Supabase:", resposta)
     except Exception as e:
         print(f"ERRO CRÍTICO AO SALVAR NO SUPABASE: {e}")
+        raise e # Isto vai fazer o erro aparecer no ecrã do site para sabermos o motivo
+
 
 def eh_perfil(nome):
     nome_upper = str(nome).strip().upper()
