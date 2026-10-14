@@ -60,12 +60,17 @@ def carregar_dados():
 
 @app.route('/teste_conexao')
 def teste_conexao():
-    supabase = init_supabase()
-    if not supabase:
-        return "Erro: Falha ao inicializar o cliente do Supabase (Verifique URL e Key)."
+    url = os.environ.get("SUPABASE_URL")
+    key = os.environ.get("SUPABASE_KEY")
+    
+    if not url or not key:
+        return f"Erro: Variáveis de ambiente em falta no Render! URL: {bool(url)}, KEY: {bool(key)}"
     
     try:
-        # Dados de teste simples
+        from supabase import create_client
+        cli = create_client(url, key)
+        
+        # Tenta inserir o teste direto
         dado_teste = {
             "Data": "14/10/2026 20:00",
             "Tipo": "Ordens Criadas",
@@ -77,14 +82,10 @@ def teste_conexao():
             "Policorte": "Nenhuma",
             "Agrupado": "Não"
         }
-        
-        # Tenta inserir diretamente
-        resposta = supabase.table("Sistema-Corte").insert(dado_teste).execute()
+        resposta = cli.table("Sistema-Corte").insert(dado_teste).execute()
         return f"SUCESSO TOTAL! Resposta do Supabase: {resposta}"
     except Exception as e:
-        return f"FALHA NA INJEÇÃO: {e}"
-
-
+        return f"FALHA AO CRIAR CLIENTE OU INSERIR: {e}"
 
 
 
