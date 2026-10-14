@@ -11,33 +11,6 @@ from supabase import create_client
 
 
 
-@app.route('/teste_conexao')
-def teste_conexao():
-    supabase = init_supabase()
-    if not supabase:
-        return "Erro: Falha ao inicializar o cliente do Supabase (Verifique URL e Key)."
-    
-    try:
-        # Dados de teste simples
-        dado_teste = {
-            "Data": "14/10/2026 20:00",
-            "Tipo": "Ordens Criadas",
-            "Carga": "TESTE",
-            "Codigo": "TESTE-999",
-            "Perfis": "Teste (Qtd: 1)",
-            "Sobras": "Nenhuma",
-            "Status": "Pendente",
-            "Policorte": "Nenhuma",
-            "Agrupado": "Não"
-        }
-        
-        # Tenta inserir diretamente
-        resposta = supabase.table("Sistema-Corte").insert(dado_teste).execute()
-        return f"SUCESSO TOTAL! Resposta do Supabase: {resposta}"
-    except Exception as e:
-        return f"FALHA NA INJEÇÃO: {e}"
-
-
 
 
 
@@ -83,6 +56,39 @@ def carregar_dados():
     except Exception as e:
         print(f"Erro ao carregar dados do Supabase: {e}")
         return pd.DataFrame(columns=["ID", "Data", "Tipo", "Carga", "Codigo", "Perfis", "Sobras", "Status", "Policorte", "Agrupado"])
+
+
+@app.route('/teste_conexao')
+def teste_conexao():
+    supabase = init_supabase()
+    if not supabase:
+        return "Erro: Falha ao inicializar o cliente do Supabase (Verifique URL e Key)."
+    
+    try:
+        # Dados de teste simples
+        dado_teste = {
+            "Data": "14/10/2026 20:00",
+            "Tipo": "Ordens Criadas",
+            "Carga": "TESTE",
+            "Codigo": "TESTE-999",
+            "Perfis": "Teste (Qtd: 1)",
+            "Sobras": "Nenhuma",
+            "Status": "Pendente",
+            "Policorte": "Nenhuma",
+            "Agrupado": "Não"
+        }
+        
+        # Tenta inserir diretamente
+        resposta = supabase.table("Sistema-Corte").insert(dado_teste).execute()
+        return f"SUCESSO TOTAL! Resposta do Supabase: {resposta}"
+    except Exception as e:
+        return f"FALHA NA INJEÇÃO: {e}"
+
+
+
+
+
+
 
 def salvar_dados(df):
     supabase = init_supabase()
