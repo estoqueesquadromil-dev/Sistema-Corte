@@ -59,7 +59,9 @@ def salvar_dados(df):
         df_envio = df.copy()
         df_envio = df_envio.fillna("")
         
-        records = []
+        records_novos = []
+        records_existentes = []
+
         for _, row in df_envio.iterrows():
             rec = row.to_dict()
             
@@ -79,20 +81,21 @@ def salvar_dados(df):
             if id_val is not None and str(id_val).strip() != "" and str(id_val).lower() != "nan":
                 try:
                     registro_limpo["id"] = int(float(str(id_val)))
+                    records_existentes.append(registro_limpo)
                 except ValueError:
-                    pass
+                    records_novos.append(registro_limpo)
+            else:
+                # Registo novo sem ID: removemos a chave 'id' para o Supabase gerar automaticamente
+                records_novos.append(registro_limpo)
 
-            records.append(registro_limpo)
-
-        if records:
-            # Usamos insert em vez de upsert para novos registos
-            resposta = supabase.table("Sistema-Corte").insert(records).execute()
-            print("Resposta do Supabase:", resposta)
+        if records_novos:
+            supabase.table("Sistema-Corte").insert(records_novos).execute()
+        if records_existentes:
+            supabase.table("Sistema-Corte").upsert(records_existentes).execute()
+            
     except Exception as e:
         print(f"ERRO CRÍTICO AO SALVAR NO SUPABASE: {e}")
-        raise e  # Mostra o erro exato no ecrã se falhar
-
-
+        raise e
 
 def eh_perfil(nome):
     nome_upper = str(nome).strip().upper()
