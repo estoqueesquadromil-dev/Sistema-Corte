@@ -87,9 +87,21 @@ def salvar_dados(df):
             records_novos.append(registro_limpo)
 
     if records_novos:
-        supabase.table("Sistema-Corte").insert(records_novos).execute()
+        resposta_insert = supabase.table("Sistema-Corte").insert(records_novos).execute()
+        print("Resposta INSERT Supabase:", resposta_insert)
+        # Se a versão da biblioteca retornar erro na resposta
+        if hasattr(resposta_insert, 'error') and resposta_insert.error:
+            raise Exception(f"Erro do Supabase no Insert: {resposta_insert.error}")
+
     if records_existentes:
-        supabase.table("Sistema-Corte").upsert(records_existentes).execute()
+        resposta_upsert = supabase.table("Sistema-Corte").upsert(records_existentes).execute()
+        print("Resposta UPSERT Supabase:", resposta_upsert)
+        if hasattr(resposta_upsert, 'error') and resposta_upsert.error:
+            raise Exception(f"Erro do Supabase no Upsert: {resposta_upsert.error}")
+
+
+
+
 def eh_perfil(nome):
     nome_upper = str(nome).strip().upper()
     baguetes = ["BB01B", "BJ05", "BJ03", "BJ06L"]
