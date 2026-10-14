@@ -6,7 +6,7 @@ import re
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file
 import pandas as pd
 from supabase import create_client
-
+import requests
 
 
 
@@ -92,35 +92,27 @@ def teste_conexao():
 
 @app.route('/verificar_chaves')
 def verificar_chaves():
-    url_env = os.environ.get("SUPABASE_URL", "NÃO ENCONTRADA")
-    key_env = os.environ.get("SUPABASE_KEY", "NÃO ENCONTRADA")
+    url_env = os.environ.get("SUPABASE_URL")
+    key_env = os.environ.get("SUPABASE_KEY")
     
-    # Mostra os primeiros e últimos carateres para confirmar se leu do Render
-    url_preview = f"{url_env[:15]}..." if len(str(url_env)) > 15 else url_env
-    key_preview = f"{key_env[:10]}...{key_env[-5:]}" if len(str(key_env)) > 15 else "CHAVES CURTAS OU INVÁLIDAS"
-    
-    # Teste de conexão real via requests
     headers = {
         "apikey": key_env,
-        "Authorization": f"Bearer {key_env}"
+        "Authorization": f"Bearer {key_env}",
+        "Content-Type": "application/json"
     }
     try:
         r = requests.get(f"{url_env}/rest/v1/Sistema-Corte?select=*&limit=1", headers=headers, timeout=5)
         status_api = r.status_code
-        resposta_api = r.text[:200] # Primeiros carateres da resposta da base de dados
+        resposta_api = r.text
     except Exception as e:
         status_api = "EXCEÇÃO"
         resposta_api = str(e)
         
     return f"""
-    <h2>Diagnóstico de Chaves e Conexão</h2>
-    <p><b>SUPABASE_URL no Render:</b> {url_preview}</p>
-    <p><b>SUPABASE_KEY no Render:</b> {key_preview}</p>
-    <hr>
-    <p><b>Status HTTP do Supabase:</b> {status_api}</p>
-    <p><b>Resposta da Base de Dados:</b> {resposta_api}</p>
+    <h2>Diagnóstico Completo da API do Supabase</h2>
+    <p><b>Status HTTP:</b> {status_api}</p>
+    <p><b>Resposta:</b> {resposta_api}</p>
     """
-
 
 
 
