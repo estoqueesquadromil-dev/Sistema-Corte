@@ -55,48 +55,41 @@ def salvar_dados(df):
     if not supabase or df.empty:
         return
         
-    try:
-        df_envio = df.copy()
-        df_envio = df_envio.fillna("")
+    df_envio = df.copy()
+    df_envio = df_envio.fillna("")
+    
+    records_novos = []
+    records_existentes = []
+
+    for _, row in df_envio.iterrows():
+        rec = row.to_dict()
         
-        records_novos = []
-        records_existentes = []
-
-        for _, row in df_envio.iterrows():
-            rec = row.to_dict()
-            
-            registro_limpo = {
-                "Data": str(rec.get("Data", rec.get("data", ""))),
-                "Tipo": str(rec.get("Tipo", rec.get("tipo", "Ordens Criadas"))),
-                "Carga": str(rec.get("Carga", rec.get("carga", ""))),
-                "Codigo": str(rec.get("Codigo", rec.get("codigo", ""))),
-                "Perfis": str(rec.get("Perfis", rec.get("perfis", ""))),
-                "Sobras": str(rec.get("Sobras", rec.get("sobras", ""))),
-                "Status": str(rec.get("Status", rec.get("status", "Pendente"))),
-                "Policorte": str(rec.get("Policorte", rec.get("policorte", "Nenhuma"))),
-                "Agrupado": str(rec.get("Agrupado", rec.get("agrupado", "Não")))
-            }
-            
-            id_val = rec.get("ID", rec.get("id"))
-            if id_val is not None and str(id_val).strip() != "" and str(id_val).lower() != "nan":
-                try:
-                    registro_limpo["id"] = int(float(str(id_val)))
-                    records_existentes.append(registro_limpo)
-                except ValueError:
-                    records_novos.append(registro_limpo)
-            else:
-                # Registo novo sem ID: removemos a chave 'id' para o Supabase gerar automaticamente
+        registro_limpo = {
+            "Data": str(rec.get("Data", rec.get("data", ""))),
+            "Tipo": str(rec.get("Tipo", rec.get("tipo", "Ordens Criadas"))),
+            "Carga": str(rec.get("Carga", rec.get("carga", ""))),
+            "Codigo": str(rec.get("Codigo", rec.get("codigo", ""))),
+            "Perfis": str(rec.get("Perfis", rec.get("perfis", ""))),
+            "Sobras": str(rec.get("Sobras", rec.get("sobras", ""))),
+            "Status": str(rec.get("Status", rec.get("status", "Pendente"))),
+            "Policorte": str(rec.get("Policorte", rec.get("policorte", "Nenhuma"))),
+            "Agrupado": str(rec.get("Agrupado", rec.get("agrupado", "Não")))
+        }
+        
+        id_val = rec.get("ID", rec.get("id"))
+        if id_val is not None and str(id_val).strip() != "" and str(id_val).lower() != "nan":
+            try:
+                registro_limpo["id"] = int(float(str(id_val)))
+                records_existentes.append(registro_limpo)
+            except ValueError:
                 records_novos.append(registro_limpo)
+        else:
+            records_novos.append(registro_limpo)
 
-        if records_novos:
-            supabase.table("Sistema-Corte").insert(records_novos).execute()
-        if records_existentes:
-            supabase.table("Sistema-Corte").upsert(records_existentes).execute()
-            
-    except Exception as e:
-        print(f"ERRO CRÍTICO AO SALVAR NO SUPABASE: {e}")
-        raise e
-
+    if records_novos:
+        supabase.table("Sistema-Corte").insert(records_novos).execute()
+    if records_existentes:
+        supabase.table("Sistema-Corte").upsert(records_existentes).execute()
 def eh_perfil(nome):
     nome_upper = str(nome).strip().upper()
     baguetes = ["BB01B", "BJ05", "BJ03", "BJ06L"]
