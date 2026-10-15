@@ -58,63 +58,6 @@ def carregar_dados():
         return pd.DataFrame(columns=["ID", "Data", "Tipo", "Carga", "Codigo", "Perfis", "Sobras", "Status", "Policorte", "Agrupado"])
 
 
-@app.route('/teste_conexao')
-def teste_conexao():
-    url = os.environ.get("SUPABASE_URL")
-    key = os.environ.get("SUPABASE_KEY")
-    
-    if not url or not key:
-        return f"Erro: Variáveis de ambiente em falta no Render! URL: {bool(url)}, KEY: {bool(key)}"
-    
-    try:
-        from supabase import create_client
-        cli = create_client(url, key)
-        
-        # Tenta inserir o teste direto
-        dado_teste = {
-            "Data": "14/10/2026 20:00",
-            "Tipo": "Ordens Criadas",
-            "Carga": "TESTE",
-            "Codigo": "TESTE-999",
-            "Perfis": "Teste (Qtd: 1)",
-            "Sobras": "Nenhuma",
-            "Status": "Pendente",
-            "Policorte": "Nenhuma",
-            "Agrupado": "Não"
-        }
-        resposta = cli.table("Sistema-Corte").insert(dado_teste).execute()
-        return f"SUCESSO TOTAL! Resposta do Supabase: {resposta}"
-    except Exception as e:
-        return f"FALHA AO CRIAR CLIENTE OU INSERIR: {e}"
-
-
-
-
-@app.route('/verificar_chaves')
-def verificar_chaves():
-    url_env = os.environ.get("SUPABASE_URL")
-    key_env = os.environ.get("SUPABASE_KEY")
-    
-    headers = {
-        "apikey": key_env,
-        "Authorization": f"Bearer {key_env}",
-        "Content-Type": "application/json"
-    }
-    try:
-        r = requests.get(f"{url_env}/rest/v1/Sistema-Corte?select=*&limit=1", headers=headers, timeout=5)
-        status_api = r.status_code
-        resposta_api = r.text
-    except Exception as e:
-        status_api = "EXCEÇÃO"
-        resposta_api = str(e)
-        
-    return f"""
-    <h2>Diagnóstico Completo da API do Supabase</h2>
-    <p><b>Status HTTP:</b> {status_api}</p>
-    <p><b>Resposta:</b> {resposta_api}</p>
-    """
-
-
 
 def salvar_dados(df):
     supabase = init_supabase()
