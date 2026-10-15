@@ -31,15 +31,18 @@ def carregar_dados():
     supabase = init_supabase()
     colunas_padrao = ["id", "data", "tipo", "carga", "codigo", "perfis", "sobras", "status", "policorte", "agrupado"]
     
+    df_vazio = pd.DataFrame(columns=["ID", "Data", "Tipo", "Carga", "Codigo", "Perfis", "Sobras", "Status", "Policorte", "Agrupado"])
+    
     if not supabase:
-        return pd.DataFrame(columns=["ID", "Data", "Tipo", "Carga", "Codigo", "Perfis", "Sobras", "Status", "Policorte", "Agrupado"])
+        return df_vazio
     
     try:
         response = supabase.table("Sistema-Corte").select("*").execute()
-        if not response.data:
-            return pd.DataFrame(columns=["ID", "Data", "Tipo", "Carga", "Codigo", "Perfis", "Sobras", "Status", "Policorte", "Agrupado"])
+        dados = getattr(response, 'data', None)
+        if not dados:
+            return df_vazio
         
-        df = pd.DataFrame(response.data)
+        df = pd.DataFrame(dados)
         df.columns = [str(c).lower().strip() for c in df.columns]
         
         for col in colunas_padrao:
@@ -52,12 +55,11 @@ def carregar_dados():
             "status": "Status", "policorte": "Policorte", "agrupado": "Agrupado"
         }
         df = df.rename(columns=mapa_colunas)
+        df = df.fillna("")
         return df
     except Exception as e:
         print(f"Erro ao carregar dados do Supabase: {e}")
-        return pd.DataFrame(columns=["ID", "Data", "Tipo", "Carga", "Codigo", "Perfis", "Sobras", "Status", "Policorte", "Agrupado"])
-
-
+        return df_vazio
 
 def salvar_dados(df):
     supabase = init_supabase()
@@ -91,22 +93,26 @@ def salvar_dados(df):
                 registro_limpo["id"] = int(float(str(id_val)))
                 records_existentes.append(registro_limpo)
             except ValueError:
+                if "id" in registro_limpo:
+                    del registro_limpo["id"]
                 records_novos.append(registro_limpo)
         else:
+            if "id" in registro_limpo:
+                del registro_limpo["id"]
             records_novos.append(registro_limpo)
 
     if records_novos:
         resposta_insert = supabase.table("Sistema-Corte").insert(records_novos).execute()
-        print("Resposta INSERT Supabase:", resposta_insert)
-        # Se a versão da biblioteca retornar erro na resposta
         if hasattr(resposta_insert, 'error') and resposta_insert.error:
             raise Exception(f"Erro do Supabase no Insert: {resposta_insert.error}")
 
     if records_existentes:
         resposta_upsert = supabase.table("Sistema-Corte").upsert(records_existentes).execute()
-        print("Resposta UPSERT Supabase:", resposta_upsert)
         if hasattr(resposta_upsert, 'error') and resposta_upsert.error:
             raise Exception(f"Erro do Supabase no Upsert: {resposta_upsert.error}")
+
+
+
 
 
 
